@@ -1,0 +1,31 @@
+Loading data...
+Converting dates...
+Calculating customer metrics...
+Performing clustering...
+Generating segment analysis...
+Analysis complete!
+
+Overall Summary:
+Total Customers: 127,092
+Total Revenue: $39,387,813.41
+Average Customer Value: $309.92
+
+Brand Loyal VIP:
+Size: 9,512 customers (7.48% of total)
+Revenue: $10,237,740.43 (25.99% of total)
+Average Customer Value: $1,076.30
+
+New Customer:
+Size: 61,286 customers (48.22% of total)
+Revenue: $13,694,114.77 (34.77% of total)
+Average Customer Value: $223.45
+
+High Value Explorer:
+Size: 28,563 customers (22.47% of total)
+Revenue: $12,398,962.43 (31.48% of total)
+Average Customer Value: $434.09
+
+Occasional Shopper:
+Size: 27,731 customers (21.82% of total)
+Revenue: $3,056,995.78 (7.76% of total)
+Average Customer Value: $110.24
