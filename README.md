@@ -7,20 +7,20 @@ Lets create a comprehensive customer segmentation analysis using your transactio
 Here's how to proceed with your customer segmentation analysis:
 
 Data Preparation:
-First, ensure your data is clean and properly formatted
-Convert transaction dates to datetime format
-Handle any missing values or duplicates
+First, ensure your data is clean and properly formatted.
+Convert transaction dates to datetime format.
+Handle any missing values or duplicates.
 
 The code performs several key analyses:
-RFM Analysis (Recency, Frequency, Monetary value)
-Brand loyalty analysis
-Category diversity analysis
-Retailer diversity analysis
+RFM Analysis (Recency, Frequency, Monetary value).
+Brand loyalty analysis.
+Category diversity analysis.
+Retailer diversity analysis.
 
 The segmentation creates five distinct customer groups:
-High Volume Explorer: Frequent shoppers who try different brands
-Brand Loyal Power User: Frequent shoppers loyal to specific brands
-Recent Casual Shopper: New or recently active customers
+High Volume Explorer: Frequent shoppers who try different brands.
+Brand Loyal Power User: Frequent shoppers loyal to specific brands.
+Recent Casual Shopper: New or recently active customers.
 
 Category Explorer: Customers who shop across many categories
 Occasional Buyer: Infrequent shoppers
