@@ -1,0 +1,186 @@
+import pandas as pd
+import numpy as np
+from datetime import datetime
+from sklearn.preprocessing import StandardScaler
+from sklearn.cluster import KMeans
+
+def load_and_prepare_data(file_path):
+    """
+    Load data from Excel and prepare it for analysis
+    """
+    print("Loading data...")
+    df = pd.read_excel(file_path)
+    
+    # Convert transaction date to datetime
+    print("Converting dates...")
+    df['TRANSACTION_DT'] = pd.to_datetime(df['TRANSACTION_DT'])
+    
+    # Basic data cleaning
+    df = df.dropna(subset=['USER_ID', 'TRANSACTION_DT', 'BASKET_TOTAL'])
+    
+    return df
+
+
+def perform_customer_segmentation(df, n_clusters=5):
+    """
+    Perform customer segmentation using transaction data.
+    Enhanced for monetary values and additional metrics.
+    """
+    print("Calculating customer metrics...")
+    
+    # First, check if dataframe is valid
+    if df is None or df.empty:
+        print("Error: Empty or invalid dataframe")
+        return None, None  # Return two None values to match the expected unpacking
+    
+    try:
+        # Calculate RFM and additional metrics
+        today = df['TRANSACTION_DT'].max()
+        
+        customer_metrics = df.groupby('USER_ID').agg({
+            'TRANSACTION_DT': lambda x: (today - x.max()).days,  # Recency
+            'BASKET_ID': 'nunique',  # Frequency (unique baskets)
+            'ITEM_QTY': 'sum',      # Total items purchased
+            'BASKET_TOTAL': 'sum',  # Total spend
+            'BRAND_ID': 'nunique',  # Number of unique brands
+            'CATEGORY_ID': 'nunique',  # Number of unique categories
+            'RETAILER_ID': 'nunique',  # Number of unique retailers
+            'STORE_ID': 'nunique',   # Number of unique stores
+            'PAYMENT_METHOD_ID': 'nunique'  # Payment methods used
+        }).rename(columns={
+            'TRANSACTION_DT': 'recency',
+            'BASKET_ID': 'frequency',
+            'ITEM_QTY': 'total_items',
+            'BASKET_TOTAL': 'total_spend',
+            'BRAND_ID': 'unique_brands',
+            'CATEGORY_ID': 'unique_categories',
+            'RETAILER_ID': 'unique_retailers',
+            'STORE_ID': 'unique_stores',
+            'PAYMENT_METHOD_ID': 'payment_methods'
+        })
+        
+        # Calculate additional derived metrics
+        customer_metrics['avg_basket_size'] = customer_metrics['total_spend'] / customer_metrics['frequency']
+        customer_metrics['avg_item_value'] = customer_metrics['total_spend'] / customer_metrics['total_items']
+        customer_metrics['brand_diversity'] = customer_metrics['unique_brands'] / customer_metrics['frequency']
+        customer_metrics['category_diversity'] = customer_metrics['unique_categories'] / customer_metrics['frequency']
+        
+        print("Performing clustering...")
+        # Normalize the features
+        scaler = StandardScaler()
+        features_for_clustering = [
+            'recency', 'frequency', 'total_spend', 
+            'total_items', 'unique_brands', 'unique_categories',
+            'avg_basket_size', 'brand_diversity', 'category_diversity'
+        ]
+        
+        scaled_features = scaler.fit_transform(customer_metrics[features_for_clustering])
+        
+        # Perform clustering
+        kmeans = KMeans(n_clusters=n_clusters, random_state=42, n_init=10)
+        customer_metrics['segment'] = kmeans.fit_predict(scaled_features)
+        
+        print("Generating segment analysis...")
+        # Calculate segment characteristics
+        segment_analysis = customer_metrics.groupby('segment').agg({
+            'recency': ['mean', 'min', 'max'],
+            'frequency': ['mean', 'min', 'max'],
+            'total_spend': ['mean', 'min', 'max'],
+            'total_items': ['mean', 'min', 'max'],
+            'avg_basket_size': ['mean', 'min', 'max'],
+            'unique_brands': ['mean', 'min', 'max'],
+            'unique_categories': ['mean', 'min', 'max'],
+            'brand_diversity': ['mean', 'min', 'max'],
+            'category_diversity': ['mean', 'min', 'max']
+        })
+        
+        # Flatten column names
+        segment_analysis.columns = ['_'.join(col).strip() for col in segment_analysis.columns.values]
+        
+        # Label segments based on multiple characteristics
+        def label_segment(row):
+            if row['total_spend_mean'] > segment_analysis['total_spend_mean'].mean():
+                if row['brand_diversity_mean'] > segment_analysis['brand_diversity_mean'].mean():
+                    return 'High Value Explorer'
+                else:
+                    return 'Brand Loyal VIP'
+            elif row['recency_mean'] < segment_analysis['recency_mean'].mean():
+                if row['frequency_mean'] > segment_analysis['frequency_mean'].mean():
+                    return 'Active Regular'
+                else:
+                    return 'New Customer'
+            else:
+                return 'Occasional Shopper'
+        
+        segment_analysis['segment_label'] = segment_analysis.apply(label_segment, axis=1)
+        customer_metrics['segment_label'] = customer_metrics['segment'].map(segment_analysis['segment_label'])
+        
+        print("Analysis complete!")
+        return customer_metrics, segment_analysis
+        
+    except Exception as e:
+        print(f"Error during segmentation: {e}")
+        return None, None  # Return two None values to match the expected unpacking
+
+
+def generate_detailed_report(customer_metrics, segment_analysis, df):
+    """
+    Generate a comprehensive report including monetary metrics
+    """
+    total_customers = len(customer_metrics)
+    
+    summary = {
+        'total_customers': total_customers,
+        'total_revenue': customer_metrics['total_spend'].sum(),
+        'average_customer_value': customer_metrics['total_spend'].mean(),
+        'segments': {}
+    }
+    
+    for segment_label in customer_metrics['segment_label'].unique():
+        segment_data = customer_metrics[customer_metrics['segment_label'] == segment_label]
+        
+        # Calculate percentage of customers in this segment
+        percentage = (len(segment_data) / total_customers) * 100
+        # Calculate percentage of revenue from this segment
+        revenue_percentage = (segment_data['total_spend'].sum() / summary['total_revenue']) * 100
+        
+        summary['segments'][segment_label] = {
+            'size': len(segment_data),
+            'percentage': round(percentage, 2),
+            'total_revenue': round(segment_data['total_spend'].sum(), 2),
+            'revenue_percentage': round(revenue_percentage, 2),
+            'avg_customer_value': round(segment_data['total_spend'].mean(), 2),
+            'avg_basket_size': round(segment_data['avg_basket_size'].mean(), 2),
+            'avg_frequency': round(segment_data['frequency'].mean(), 2),
+            'avg_recency_days': round(segment_data['recency'].mean(), 2),
+            'brand_diversity': round(segment_data['brand_diversity'].mean(), 2),
+            'category_diversity': round(segment_data['category_diversity'].mean(), 2)
+        }
+    
+    return summary
+
+
+
+# 1. Load and analyze the data
+file_path = "data_project.xlsx"
+df = load_and_prepare_data(file_path)
+customer_metrics, segment_analysis = perform_customer_segmentation(df)
+
+# Check if results are valid before proceeding
+if customer_metrics is not None and segment_analysis is not None:
+    # 2. Generate detailed report
+    summary = generate_detailed_report(customer_metrics, segment_analysis, df)
+    
+# 3. Print summary
+    print("\nOverall Summary:")
+    print(f"Total Customers: {summary['total_customers']:,}")
+    print(f"Total Revenue: ${summary['total_revenue']:,.2f}")
+    print(f"Average Customer Value: ${summary['average_customer_value']:,.2f}")
+    
+    for segment, stats in summary['segments'].items():
+        print(f"\n{segment}:")
+        print(f"Size: {stats['size']:,} customers ({stats['percentage']}% of total)")
+        print(f"Revenue: ${stats['total_revenue']:,.2f} ({stats['revenue_percentage']}% of total)")
+        print(f"Average Customer Value: ${stats['avg_customer_value']:,.2f}")
+else:
+    print("Segmentation could not be completed due to errors.")
